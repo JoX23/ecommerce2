@@ -23,7 +23,7 @@ async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(url, { ...options, credentials: 'include', headers });
 
   if (response.status === 401) {
     clearToken();

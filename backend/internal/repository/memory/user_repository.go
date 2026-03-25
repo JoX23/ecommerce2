@@ -27,6 +27,14 @@ func NewUserRepository() *UserRepository {
 	}
 }
 
+func copyUser(u *domain.User) *domain.User {
+	if u == nil {
+		return nil
+	}
+	c := *u // shallow copy del struct (todos los campos son valores)
+	return &c
+}
+
 // CreateIfNotExists verifica unicidad y crea de forma ATÓMICA.
 // Retorna ErrUserDuplicated si ya existe un duplicado.
 //
@@ -39,8 +47,9 @@ func (r *UserRepository) CreateIfNotExists(_ context.Context, e *domain.User) er
 		return domain.ErrUserDuplicated
 	}
 
-	r.byID[e.ID.String()] = e
-	r.byEmail[e.Email] = e
+	stored := copyUser(e)
+	r.byID[e.ID.String()] = stored
+	r.byEmail[e.Email] = stored
 
 	return nil
 }
@@ -49,8 +58,9 @@ func (r *UserRepository) Save(_ context.Context, e *domain.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.byID[e.ID.String()] = e
-	r.byEmail[e.Email] = e
+	stored := copyUser(e)
+	r.byID[e.ID.String()] = stored
+	r.byEmail[e.Email] = stored
 
 	return nil
 }
@@ -63,7 +73,7 @@ func (r *UserRepository) FindByID(_ context.Context, id string) (*domain.User, e
 	if !ok {
 		return nil, domain.ErrUserNotFound
 	}
-	return e, nil
+	return copyUser(e), nil
 }
 
 func (r *UserRepository) FindByEmail(_ context.Context, email string) (*domain.User, error) {
@@ -74,7 +84,7 @@ func (r *UserRepository) FindByEmail(_ context.Context, email string) (*domain.U
 	if !ok {
 		return nil, domain.ErrUserNotFound
 	}
-	return e, nil
+	return copyUser(e), nil
 }
 
 func (r *UserRepository) List(_ context.Context) ([]*domain.User, error) {
@@ -83,7 +93,7 @@ func (r *UserRepository) List(_ context.Context) ([]*domain.User, error) {
 
 	items := make([]*domain.User, 0, len(r.byID))
 	for _, e := range r.byID {
-		items = append(items, e)
+		items = append(items, copyUser(e))
 	}
 	return items, nil
 }

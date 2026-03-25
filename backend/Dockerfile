@@ -12,4 +12,6 @@ COPY --from=builder /app/server .
 # config.yaml NO se copia en la imagen. En producción la config se inyecta
 # exclusivamente via variables de entorno (APP_* prefix).
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["./server", "--healthcheck"]
 CMD ["./server"]

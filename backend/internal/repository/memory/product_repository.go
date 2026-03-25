@@ -27,6 +27,14 @@ func NewProductRepository() *ProductRepository {
 	}
 }
 
+func copyProduct(p *domain.Product) *domain.Product {
+	if p == nil {
+		return nil
+	}
+	c := *p // shallow copy del struct (Description y ImageUrl son *string, se copian los punteros)
+	return &c
+}
+
 // CreateIfNotExists verifica unicidad y crea de forma ATÓMICA.
 // Retorna ErrProductDuplicated si ya existe un duplicado.
 //
@@ -39,8 +47,9 @@ func (r *ProductRepository) CreateIfNotExists(_ context.Context, e *domain.Produ
 		return domain.ErrProductDuplicated
 	}
 
-	r.byID[e.ID.String()] = e
-	r.bySku[e.Sku] = e
+	stored := copyProduct(e)
+	r.byID[e.ID.String()] = stored
+	r.bySku[e.Sku] = stored
 
 	return nil
 }
@@ -49,8 +58,9 @@ func (r *ProductRepository) Save(_ context.Context, e *domain.Product) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.byID[e.ID.String()] = e
-	r.bySku[e.Sku] = e
+	stored := copyProduct(e)
+	r.byID[e.ID.String()] = stored
+	r.bySku[e.Sku] = stored
 
 	return nil
 }
@@ -63,7 +73,7 @@ func (r *ProductRepository) FindByID(_ context.Context, id string) (*domain.Prod
 	if !ok {
 		return nil, domain.ErrProductNotFound
 	}
-	return e, nil
+	return copyProduct(e), nil
 }
 
 func (r *ProductRepository) FindBySku(_ context.Context, sku string) (*domain.Product, error) {
@@ -74,7 +84,7 @@ func (r *ProductRepository) FindBySku(_ context.Context, sku string) (*domain.Pr
 	if !ok {
 		return nil, domain.ErrProductNotFound
 	}
-	return e, nil
+	return copyProduct(e), nil
 }
 
 func (r *ProductRepository) List(_ context.Context) ([]*domain.Product, error) {
@@ -83,7 +93,7 @@ func (r *ProductRepository) List(_ context.Context) ([]*domain.Product, error) {
 
 	items := make([]*domain.Product, 0, len(r.byID))
 	for _, e := range r.byID {
-		items = append(items, e)
+		items = append(items, copyProduct(e))
 	}
 	return items, nil
 }

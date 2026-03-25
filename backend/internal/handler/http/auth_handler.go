@@ -29,6 +29,7 @@ func NewAuthHandler(svc *service.UserService, jwtSecret string, logger *zap.Logg
 func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux, authMiddleware func(http.Handler) http.Handler) {
 	mux.HandleFunc("POST /auth/register", h.Register)
 	mux.HandleFunc("POST /auth/login", h.Login)
+	mux.HandleFunc("POST /auth/logout", h.Logout)
 	mux.Handle("GET /auth/me", authMiddleware(http.HandlerFunc(h.Me)))
 }
 
@@ -73,6 +74,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // true en producción con HTTPS
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   86400, // 24 horas
+	})
+
 	writeAuthJSON(w, http.StatusCreated, map[string]interface{}{
 		"token": token,
 		"user": authUserResponse{
@@ -115,6 +126,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // true en producción con HTTPS
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   86400, // 24 horas
+	})
+
 	writeAuthJSON(w, http.StatusOK, map[string]interface{}{
 		"token": token,
 		"user": authUserResponse{
@@ -124,6 +145,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		},
 	})
+}
+
+// Logout handles POST /auth/logout — clears the auth_token cookie.
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Me handles GET /auth/me (protected)

@@ -14,16 +14,29 @@ const UserIDKey contextKey = "userID"
 const UserEmailKey contextKey = "userEmail"
 
 // JWTAuth returns a middleware that validates Bearer JWT tokens.
+// It first checks the Authorization header, then falls back to the auth_token cookie.
 func JWTAuth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var tokenStr string
+
+			// 1. Intentar header Authorization
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			}
+
+			// 2. Fallback a cookie
+			if tokenStr == "" {
+				if cookie, err := r.Cookie("auth_token"); err == nil {
+					tokenStr = cookie.Value
+				}
+			}
+
+			if tokenStr == "" {
 				http.Error(w, `{"error":"missing or invalid authorization header"}`, http.StatusUnauthorized)
 				return
 			}
-
-			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
 			token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {

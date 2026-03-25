@@ -29,11 +29,12 @@ type ServiceConfig struct {
 }
 
 type ServerConfig struct {
-	HTTPPort        int           `mapstructure:"http_port"`
-	GRPCPort        int           `mapstructure:"grpc_port"`
-	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
-	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
-	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
+	HTTPPort           int           `mapstructure:"http_port"`
+	GRPCPort           int           `mapstructure:"grpc_port"`
+	ShutdownTimeout    time.Duration `mapstructure:"shutdown_timeout"`
+	ReadTimeout        time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout       time.Duration `mapstructure:"write_timeout"`
+	CORSAllowedOrigins []string      `mapstructure:"allowed_origins"`
 }
 
 type DatabaseConfig struct {

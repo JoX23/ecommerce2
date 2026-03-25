@@ -21,11 +21,27 @@ func NewOrderRepository() *OrderRepository {
 	}
 }
 
+func copyOrder(o *domain.Order) *domain.Order {
+	if o == nil {
+		return nil
+	}
+	c := *o // shallow copy del struct
+	// copiar el slice de items para evitar aliasing
+	if o.Items != nil {
+		c.Items = make([]domain.OrderItem, len(o.Items))
+		for i, item := range o.Items {
+			c.Items[i] = item // OrderItem es un struct (valor), no puntero
+		}
+	}
+	return &c
+}
+
 func (r *OrderRepository) CreateIfNotExists(_ context.Context, e *domain.Order) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.byID[e.ID.String()] = e
+	stored := copyOrder(e)
+	r.byID[e.ID.String()] = stored
 	return nil
 }
 
@@ -33,7 +49,8 @@ func (r *OrderRepository) Save(_ context.Context, e *domain.Order) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.byID[e.ID.String()] = e
+	stored := copyOrder(e)
+	r.byID[e.ID.String()] = stored
 	return nil
 }
 
@@ -45,7 +62,7 @@ func (r *OrderRepository) FindByID(_ context.Context, id string) (*domain.Order,
 	if !ok {
 		return nil, domain.ErrOrderNotFound
 	}
-	return e, nil
+	return copyOrder(e), nil
 }
 
 func (r *OrderRepository) FindByUserId(_ context.Context, userid uuid.UUID) ([]*domain.Order, error) {
@@ -55,7 +72,7 @@ func (r *OrderRepository) FindByUserId(_ context.Context, userid uuid.UUID) ([]*
 	var result []*domain.Order
 	for _, e := range r.byID {
 		if e.UserId == userid {
-			result = append(result, e)
+			result = append(result, copyOrder(e))
 		}
 	}
 	return result, nil
@@ -67,7 +84,7 @@ func (r *OrderRepository) List(_ context.Context) ([]*domain.Order, error) {
 
 	items := make([]*domain.Order, 0, len(r.byID))
 	for _, e := range r.byID {
-		items = append(items, e)
+		items = append(items, copyOrder(e))
 	}
 	return items, nil
 }

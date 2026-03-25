@@ -41,6 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(null);
     setUser(null);
     localStorage.removeItem('auth_user');
+    // Clear HttpOnly cookie on the server
+    fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {
+      // Ignore errors — local state is already cleared
+    });
   };
 
   return (

@@ -40,8 +40,8 @@ USER appuser
 
 EXPOSE 8080
 
-# Healthcheck usando el endpoint del propio servicio
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/bin/sh", "-c", "wget -qO- http://localhost:8080/healthz || exit 1"]
+# Healthcheck usando el propio binario (no necesita wget ni curl en scratch)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["/server", "--healthcheck"]
 
 ENTRYPOINT ["/server"]
