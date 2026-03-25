@@ -131,11 +131,36 @@ func (s *OrderService) ListOrders(ctx context.Context) ([]*domain.Order, error) 
 	return items, nil
 }
 
-// ListByUser retorna orders for a specific user.
+// ListByUser retorna orders for a specific user (no pagination, legacy).
 func (s *OrderService) ListByUser(ctx context.Context, userid uuid.UUID) ([]*domain.Order, error) {
 	items, err := s.repo.FindByUserId(ctx, userid)
 	if err != nil {
 		return nil, fmt.Errorf("listing orders by user: %w", err)
 	}
 	return items, nil
+}
+
+// ListByUserPaginated retorna orders de un usuario con paginación.
+func (s *OrderService) ListByUserPaginated(ctx context.Context, userid uuid.UUID, params domain.PaginationParams) (*domain.PaginatedResult[*domain.Order], error) {
+	items, total, err := s.repo.FindByUserIdPaginated(ctx, userid, params)
+	if err != nil {
+		return nil, fmt.Errorf("listing orders by user: %w", err)
+	}
+
+	totalPages := 0
+	if params.Limit > 0 {
+		totalPages = (total + params.Limit - 1) / params.Limit
+	}
+
+	if items == nil {
+		items = []*domain.Order{}
+	}
+
+	return &domain.PaginatedResult[*domain.Order]{
+		Data:       items,
+		Page:       params.Page,
+		Limit:      params.Limit,
+		Total:      total,
+		TotalPages: totalPages,
+	}, nil
 }

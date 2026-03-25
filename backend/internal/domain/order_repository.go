@@ -29,6 +29,10 @@ type OrderRepository interface {
 	// FindByUserId busca por UserId.
 	FindByUserId(ctx context.Context, userid uuid.UUID) ([]*Order, error)
 
+	// FindByUserIdPaginated busca orders de un usuario con paginación.
+	// Retorna: items de la página, total de orders del usuario, error.
+	FindByUserIdPaginated(ctx context.Context, userid uuid.UUID, p PaginationParams) ([]*Order, int, error)
+
 	// List retorna todos los registros.
 	List(ctx context.Context) ([]*Order, error)
 }

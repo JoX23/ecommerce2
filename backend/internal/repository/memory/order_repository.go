@@ -78,6 +78,31 @@ func (r *OrderRepository) FindByUserId(_ context.Context, userid uuid.UUID) ([]*
 	return result, nil
 }
 
+func (r *OrderRepository) FindByUserIdPaginated(_ context.Context, userid uuid.UUID, p domain.PaginationParams) ([]*domain.Order, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var all []*domain.Order
+	for _, e := range r.byID {
+		if e.UserId == userid {
+			all = append(all, copyOrder(e))
+		}
+	}
+
+	total := len(all)
+	offset := p.Offset()
+	if offset >= total {
+		return []*domain.Order{}, total, nil
+	}
+
+	end := offset + p.Limit
+	if end > total {
+		end = total
+	}
+
+	return all[offset:end], total, nil
+}
+
 func (r *OrderRepository) List(_ context.Context) ([]*domain.Order, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

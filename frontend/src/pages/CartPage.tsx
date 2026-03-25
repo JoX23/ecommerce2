@@ -15,11 +15,10 @@ export function CartPage() {
     setError('');
     setLoading(true);
     try {
-      await api.post<Order>('/orders', {
-        items: items.map(i => ({ productId: i.product.id, qty: i.qty })),
-      });
+      const payload = items.map(i => ({ productId: i.product.id, qty: i.qty }));
+      const order = await api.post<Order>('/orders', { items: payload });
       clearCart();
-      navigate('/orders');
+      navigate(`/orders/${order.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Checkout failed');
     } finally {

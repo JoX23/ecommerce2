@@ -97,3 +97,29 @@ func (r *ProductRepository) List(_ context.Context) ([]*domain.Product, error) {
 	}
 	return items, nil
 }
+
+func (r *ProductRepository) ListByStatus(_ context.Context, status domain.ProductStatus, p domain.PaginationParams) ([]*domain.Product, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	// Collect all matching items
+	var all []*domain.Product
+	for _, e := range r.byID {
+		if e.Status == status {
+			all = append(all, copyProduct(e))
+		}
+	}
+
+	total := len(all)
+	offset := p.Offset()
+	if offset >= total {
+		return []*domain.Product{}, total, nil
+	}
+
+	end := offset + p.Limit
+	if end > total {
+		end = total
+	}
+
+	return all[offset:end], total, nil
+}

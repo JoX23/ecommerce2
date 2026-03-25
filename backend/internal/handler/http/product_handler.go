@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"go.uber.org/zap"
 
@@ -69,20 +70,28 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	writeProductJSON(w, http.StatusOK, toProductResponse(e))
 }
 
-// ListProducts handles GET /products — returns only published products.
+// ListProducts handles GET /products — returns only published products with pagination.
 func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
-	items, err := h.svc.ListPublished(r.Context())
+	params := parsePaginationParams(r, 20, 100)
+
+	result, err := h.svc.ListPublished(r.Context(), params)
 	if err != nil {
 		h.handleProductError(w, err)
 		return
 	}
 
-	resp := make([]productResponse, 0, len(items))
-	for _, e := range items {
-		resp = append(resp, toProductResponse(e))
+	data := make([]productResponse, 0, len(result.Data))
+	for _, e := range result.Data {
+		data = append(data, toProductResponse(e))
 	}
 
-	writeProductJSON(w, http.StatusOK, resp)
+	writeProductJSON(w, http.StatusOK, map[string]any{
+		"data":       data,
+		"page":       result.Page,
+		"limit":      result.Limit,
+		"total":      result.Total,
+		"totalPages": result.TotalPages,
+	})
 }
 
 // UpdateProduct handles PUT /products/{id}
@@ -168,4 +177,27 @@ func writeProductJSON(w http.ResponseWriter, status int, body any) {
 
 func writeProductError(w http.ResponseWriter, status int, msg string) {
 	writeProductJSON(w, status, map[string]string{"error": msg})
+}
+
+// parsePaginationParams reads ?page= and ?limit= from the request query string.
+// defaultLimit is the default limit; maxLimit is the maximum allowed limit.
+func parsePaginationParams(r *http.Request, defaultLimit, maxLimit int) domain.PaginationParams {
+	p := domain.PaginationParams{Page: 1, Limit: defaultLimit}
+
+	if v := r.URL.Query().Get("page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			p.Page = n
+		}
+	}
+
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			if n > maxLimit {
+				n = maxLimit
+			}
+			p.Limit = n
+		}
+	}
+
+	return p
 }

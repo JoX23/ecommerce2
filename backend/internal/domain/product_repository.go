@@ -28,4 +28,8 @@ type ProductRepository interface {
 
 	// List retorna todos los registros.
 	List(ctx context.Context) ([]*Product, error)
+
+	// ListByStatus retorna productos filtrados por status con paginación.
+	// Retorna: items de la página, total de items con ese status, error.
+	ListByStatus(ctx context.Context, status ProductStatus, p PaginationParams) ([]*Product, int, error)
 }

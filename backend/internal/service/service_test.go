@@ -164,11 +164,11 @@ func TestProductService_ListPublished_OnlyShowsPublished(t *testing.T) {
 	_, err = svc.CreateProduct(ctx, "SKU-ARC", "Archived Product", 30.0, 0, nil, nil, "archived")
 	require.NoError(t, err)
 
-	published, err := svc.ListPublished(ctx)
+	result, err := svc.ListPublished(ctx, domain.DefaultPagination())
 
 	require.NoError(t, err)
-	require.Len(t, published, 1)
-	assert.Equal(t, "SKU-PUB", published[0].Sku)
+	require.Len(t, result.Data, 1)
+	assert.Equal(t, "SKU-PUB", result.Data[0].Sku)
 }
 
 func TestProductService_ListPublished_Empty(t *testing.T) {
@@ -178,10 +178,10 @@ func TestProductService_ListPublished_Empty(t *testing.T) {
 	_, err := svc.CreateProduct(ctx, "SKU-DRF", "Draft Only", 10.0, 5, nil, nil, "draft")
 	require.NoError(t, err)
 
-	published, err := svc.ListPublished(ctx)
+	result, err := svc.ListPublished(ctx, domain.DefaultPagination())
 
 	require.NoError(t, err)
-	assert.Empty(t, published)
+	assert.Empty(t, result.Data)
 }
 
 func TestProductService_UpdateProduct_Success(t *testing.T) {

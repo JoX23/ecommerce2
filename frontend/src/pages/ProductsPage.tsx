@@ -9,8 +9,8 @@ export function ProductsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get<Product[]>('/products')
-      .then(data => setProducts(data ?? []))
+    api.get<{ data: Product[] }>('/products')
+      .then(res => setProducts(res?.data ?? []))
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, []);

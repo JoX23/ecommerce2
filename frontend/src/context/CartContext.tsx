@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CartItem, Product } from '../types';
 
@@ -59,8 +59,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('cart_items');
   };
 
-  const totalItems = items.reduce((sum, i) => sum + i.qty, 0);
-  const totalPrice = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+  const totalItems = useMemo(() => items.reduce((sum, i) => sum + i.qty, 0), [items]);
+  const totalPrice = useMemo(() => items.reduce((sum, i) => sum + i.product.price * i.qty, 0), [items]);
 
   return (
     <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, totalPrice }}>

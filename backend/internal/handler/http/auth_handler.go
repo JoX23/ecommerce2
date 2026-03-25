@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 
 	"github.com/JoX23/go-without-magic/internal/domain"
@@ -16,13 +15,13 @@ import (
 
 // AuthHandler handles registration, login and profile endpoints.
 type AuthHandler struct {
-	svc       *service.UserService
-	jwtSecret string
-	logger    *zap.Logger
+	svc      *service.UserService
+	tokenSvc *service.TokenService
+	logger   *zap.Logger
 }
 
-func NewAuthHandler(svc *service.UserService, jwtSecret string, logger *zap.Logger) *AuthHandler {
-	return &AuthHandler{svc: svc, jwtSecret: jwtSecret, logger: logger}
+func NewAuthHandler(svc *service.UserService, tokenSvc *service.TokenService, logger *zap.Logger) *AuthHandler {
+	return &AuthHandler{svc: svc, tokenSvc: tokenSvc, logger: logger}
 }
 
 // RegisterRoutes registers auth routes on the mux.
@@ -67,7 +66,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.generateToken(user.ID.String(), user.Email)
+	token, err := h.tokenSvc.Generate(user.ID.String(), user.Email)
 	if err != nil {
 		h.logger.Error("failed to generate token", zap.Error(err))
 		writeAuthError(w, http.StatusInternalServerError, "internal server error")
@@ -119,7 +118,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.generateToken(user.ID.String(), user.Email)
+	token, err := h.tokenSvc.Generate(user.ID.String(), user.Email)
 	if err != nil {
 		h.logger.Error("failed to generate token", zap.Error(err))
 		writeAuthError(w, http.StatusInternalServerError, "internal server error")
@@ -184,18 +183,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		Name:      user.Name,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 	})
-}
-
-// generateToken creates a signed HS256 JWT with 24h expiry.
-func (h *AuthHandler) generateToken(userID, email string) (string, error) {
-	claims := jwt.MapClaims{
-		"sub":   userID,
-		"email": email,
-		"exp":   time.Now().Add(24 * time.Hour).Unix(),
-		"iat":   time.Now().Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(h.jwtSecret))
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

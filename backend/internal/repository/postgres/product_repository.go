@@ -106,6 +106,37 @@ func (r *ProductRepository) List(ctx context.Context) ([]*domain.Product, error)
 	return items, rows.Err()
 }
 
+func (r *ProductRepository) ListByStatus(ctx context.Context, status domain.ProductStatus, p domain.PaginationParams) ([]*domain.Product, int, error) {
+	var total int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM products WHERE status = $1`,
+		string(status),
+	).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("counting products by status: %w", err)
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, sku, name, price, stock, description, image_url, status, created_at, updated_at
+		 FROM products WHERE status = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		string(status), p.Limit, p.Offset(),
+	)
+	if err != nil {
+		return nil, 0, fmt.Errorf("listing products by status: %w", err)
+	}
+	defer rows.Close()
+
+	var items []*domain.Product
+	for rows.Next() {
+		e, err := scanProduct(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("scanning row: %w", err)
+		}
+		items = append(items, e)
+	}
+	return items, total, rows.Err()
+}
+
 type productScanner interface {
 	Scan(dest ...any) error
 }

@@ -119,6 +119,42 @@ func (r *OrderRepository) FindByUserId(ctx context.Context, userid uuid.UUID) ([
 	return result, rows.Err()
 }
 
+func (r *OrderRepository) FindByUserIdPaginated(ctx context.Context, userid uuid.UUID, p domain.PaginationParams) ([]*domain.Order, int, error) {
+	var total int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM orders WHERE user_id = $1`,
+		userid,
+	).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("counting orders by user_id: %w", err)
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, user_id, status, total, created_at, updated_at
+		 FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		userid, p.Limit, p.Offset(),
+	)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying by user_id paginated: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*domain.Order
+	for rows.Next() {
+		e, err := scanOrder(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("scanning row: %w", err)
+		}
+		items, err := r.findItemsByOrderID(ctx, e.ID.String())
+		if err != nil {
+			return nil, 0, err
+		}
+		e.Items = items
+		result = append(result, e)
+	}
+	return result, total, rows.Err()
+}
+
 func (r *OrderRepository) List(ctx context.Context) ([]*domain.Order, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, user_id, status, total, created_at, updated_at

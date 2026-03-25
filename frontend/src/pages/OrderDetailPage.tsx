@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Order } from '../types';
-
-const STATUS_COLORS: Record<string, string> = {
-  pending:   'bg-yellow-100 text-yellow-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  shipped:   'bg-indigo-100 text-indigo-700',
-  delivered: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-};
+import { STATUS_COLORS } from '../utils/orderStatus';
 
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -67,11 +60,11 @@ export function OrderDetailPage() {
 
         <h2 className="font-semibold text-gray-900 mb-3">Items</h2>
         <div className="space-y-3 mb-6">
-          {order.items?.map((item, i) => (
-            <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+          {order.items?.map((item) => (
+            <div key={item.productId} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
               <div>
-                <p className="text-sm font-medium text-gray-900 font-mono">
-                  {item.productId.slice(0, 8)}...
+                <p className="text-sm font-medium text-gray-900">
+                  {item.productName}
                 </p>
                 <p className="text-xs text-gray-500">
                   {item.qty} × ${item.unitPrice.toFixed(2)}

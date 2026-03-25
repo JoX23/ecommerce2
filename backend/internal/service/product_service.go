@@ -90,19 +90,29 @@ func (s *ProductService) GetByID(ctx context.Context, id string) (*domain.Produc
 	return e, nil
 }
 
-// ListPublished returns only published products.
-func (s *ProductService) ListPublished(ctx context.Context) ([]*domain.Product, error) {
-	all, err := s.repo.List(ctx)
+// ListPublished returns only published products with pagination.
+func (s *ProductService) ListPublished(ctx context.Context, params domain.PaginationParams) (*domain.PaginatedResult[*domain.Product], error) {
+	items, total, err := s.repo.ListByStatus(ctx, domain.ProductStatusPublished, params)
 	if err != nil {
 		return nil, fmt.Errorf("listing products: %w", err)
 	}
-	var result []*domain.Product
-	for _, p := range all {
-		if p.Status == domain.ProductStatusPublished {
-			result = append(result, p)
-		}
+
+	totalPages := 0
+	if params.Limit > 0 {
+		totalPages = (total + params.Limit - 1) / params.Limit
 	}
-	return result, nil
+
+	if items == nil {
+		items = []*domain.Product{}
+	}
+
+	return &domain.PaginatedResult[*domain.Product]{
+		Data:       items,
+		Page:       params.Page,
+		Limit:      params.Limit,
+		Total:      total,
+		TotalPages: totalPages,
+	}, nil
 }
 
 // ListProducts returns all products regardless of status.

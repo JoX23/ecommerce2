@@ -38,9 +38,10 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	DSN          string `mapstructure:"dsn"`
-	MaxOpenConns int    `mapstructure:"max_open_conns"`
-	MaxIdleConns int    `mapstructure:"max_idle_conns"`
+	DSN              string `mapstructure:"dsn"`
+	MaxOpenConns     int    `mapstructure:"max_open_conns"`
+	MaxIdleConns     int    `mapstructure:"max_idle_conns"`
+	RepositoryDriver string `mapstructure:"repository_driver"` // "memory" (default) or "postgres"
 }
 
 type ObservabilityConfig struct {
@@ -124,5 +125,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.write_timeout", 10*time.Second)
 	v.SetDefault("database.max_open_conns", 25)
 	v.SetDefault("database.max_idle_conns", 5)
+	v.SetDefault("database.repository_driver", "memory")
 	v.SetDefault("observability.log_level", "info")
 }

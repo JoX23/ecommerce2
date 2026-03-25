@@ -108,7 +108,7 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	writeOrderJSON(w, http.StatusOK, toOrderResponse(order))
 }
 
-// ListOrders handles GET /orders — returns orders for the authenticated user.
+// ListOrders handles GET /orders — returns orders for the authenticated user with pagination.
 func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userIDStr == "" {
@@ -122,27 +122,36 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := h.svc.ListByUser(r.Context(), userID)
+	params := parsePaginationParams(r, 20, 100)
+
+	result, err := h.svc.ListByUserPaginated(r.Context(), userID, params)
 	if err != nil {
 		h.handleOrderError(w, err)
 		return
 	}
 
-	resp := make([]orderResponse, 0, len(items))
-	for _, e := range items {
-		resp = append(resp, toOrderResponse(e))
+	data := make([]orderResponse, 0, len(result.Data))
+	for _, e := range result.Data {
+		data = append(data, toOrderResponse(e))
 	}
 
-	writeOrderJSON(w, http.StatusOK, resp)
+	writeOrderJSON(w, http.StatusOK, map[string]any{
+		"data":       data,
+		"page":       result.Page,
+		"limit":      result.Limit,
+		"total":      result.Total,
+		"totalPages": result.TotalPages,
+	})
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 type orderItemResponse struct {
-	ProductId string  `json:"productId"`
-	Qty       int     `json:"qty"`
-	UnitPrice float64 `json:"unitPrice"`
-	Subtotal  float64 `json:"subtotal"`
+	ProductId   string  `json:"productId"`
+	ProductName string  `json:"productName"`
+	Qty         int     `json:"qty"`
+	UnitPrice   float64 `json:"unitPrice"`
+	Subtotal    float64 `json:"subtotal"`
 }
 
 type orderResponse struct {
@@ -158,10 +167,11 @@ func toOrderResponse(e *domain.Order) orderResponse {
 	items := make([]orderItemResponse, 0, len(e.Items))
 	for _, it := range e.Items {
 		items = append(items, orderItemResponse{
-			ProductId: it.ProductId.String(),
-			Qty:       it.Qty,
-			UnitPrice: it.UnitPrice,
-			Subtotal:  it.Subtotal,
+			ProductId:   it.ProductId.String(),
+			ProductName: it.ProductName,
+			Qty:         it.Qty,
+			UnitPrice:   it.UnitPrice,
+			Subtotal:    it.Subtotal,
 		})
 	}
 	return orderResponse{
