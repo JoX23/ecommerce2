@@ -1,0 +1,17 @@
+version: "1"
+name: Order
+profile: full
+
+fields:
+  - name: UserId
+    type: uuid
+    validate: "required"
+  - name: Status
+    type: enum
+    values: ["pending", "confirmed", "shipped", "delivered", "cancelled"]
+  - name: Total
+    type: float64
+    validate: "required,min=0"
+
+lookup_keys:
+  - field: UserId

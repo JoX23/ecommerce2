@@ -1,0 +1,18 @@
+version: "1"
+name: User
+profile: full
+
+fields:
+  - name: Email
+    type: string
+    unique: true
+    validate: "required,email"
+  - name: Name
+    type: string
+    validate: "required,min=2"
+  - name: PasswordHash
+    type: string
+    validate: "required"
+
+lookup_keys:
+  - field: Email
