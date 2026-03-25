@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: deployments/docker/Dockerfile
+    # Credenciales sensibles (APP_AUTH_JWT_SECRET, APP_DATABASE_DSN) deben
+    # moverse a un archivo .env (ver .env.example). NUNCA commitear .env.
+    env_file: .env
     ports:
       - "8080:8080"
       - "9090:9090"

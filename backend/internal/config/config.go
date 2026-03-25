@@ -105,11 +105,14 @@ func (c *Config) validate() error {
 	if c.Server.HTTPPort == 0 {
 		return fmt.Errorf("server.http_port is required")
 	}
+	if c.Auth.JWTSecret == "" {
+		return fmt.Errorf("auth.jwt_secret is required")
+	}
 	return nil
 }
 
 func setDefaults(v *viper.Viper) {
-	v.SetDefault("auth.jwt_secret", "changeme-supersecret-key-123")
+	// auth.jwt_secret no tiene default — debe ser inyectado via APP_AUTH_JWT_SECRET
 
 	v.SetDefault("service.version", "dev")
 	v.SetDefault("service.environment", "local")

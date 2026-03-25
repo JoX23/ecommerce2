@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/JoX23/go-without-magic/internal/domain"
 	"github.com/JoX23/go-without-magic/internal/middleware"
@@ -51,14 +50,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		h.logger.Error("failed to hash password", zap.Error(err))
-		writeAuthError(w, http.StatusInternalServerError, "internal server error")
-		return
-	}
-
-	user, err := h.svc.CreateUser(r.Context(), req.Email, req.Name, string(hash))
+	user, err := h.svc.CreateUser(r.Context(), req.Email, req.Name, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrUserDuplicated):
@@ -109,14 +101,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.svc.GetByEmail(r.Context(), req.Email)
+	user, err := h.svc.AuthenticateUser(r.Context(), req.Email, req.Password)
 	if err != nil {
 		// Don't leak whether email exists
-		writeAuthError(w, http.StatusUnauthorized, "invalid email or password")
-		return
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		writeAuthError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}

@@ -19,10 +19,11 @@ const (
 
 // OrderItem represents a line item within an order.
 type OrderItem struct {
-	ProductId uuid.UUID `json:"product_id"`
-	Qty       int       `json:"qty"`
-	UnitPrice float64   `json:"unit_price"`
-	Subtotal  float64   `json:"subtotal"`
+	ProductId   uuid.UUID `json:"product_id"`
+	ProductName string    `json:"product_name"`
+	Qty         int       `json:"qty"`
+	UnitPrice   float64   `json:"unit_price"`
+	Subtotal    float64   `json:"subtotal"`
 }
 
 // OrderItemRequest is used when creating an order to specify product and qty.

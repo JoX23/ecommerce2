@@ -26,7 +26,7 @@ func TestCreateUser_Success(t *testing.T) {
 	svc := newTestService(t)
 	ctx := context.Background()
 
-	user, err := svc.CreateUser(ctx, "alice@example.com", "Alice")
+	user, err := svc.CreateUser(ctx, "alice@example.com", "Alice", "password123")
 
 	require.NoError(t, err)
 	assert.Equal(t, "alice@example.com", user.Email)
@@ -40,11 +40,11 @@ func TestCreateUser_DuplicateEmail(t *testing.T) {
 	ctx := context.Background()
 
 	// Crear primero
-	_, err := svc.CreateUser(ctx, "bob@example.com", "Bob")
+	_, err := svc.CreateUser(ctx, "bob@example.com", "Bob", "password123")
 	require.NoError(t, err)
 
 	// Intentar crear con el mismo email
-	_, err = svc.CreateUser(ctx, "bob@example.com", "Bob Clone")
+	_, err = svc.CreateUser(ctx, "bob@example.com", "Bob Clone", "password123")
 
 	assert.ErrorIs(t, err, domain.ErrUserDuplicated)
 }
@@ -53,18 +53,18 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 	svc := newTestService(t)
 	ctx := context.Background()
 
-	_, err := svc.CreateUser(ctx, "", "Alice")
+	_, err := svc.CreateUser(ctx, "", "Alice", "password123")
 
-	assert.ErrorIs(t, err, domain.ErrInvalidEmail)
+	assert.ErrorIs(t, err, domain.ErrInvalidUserEmail)
 }
 
 func TestCreateUser_InvalidName(t *testing.T) {
 	svc := newTestService(t)
 	ctx := context.Background()
 
-	_, err := svc.CreateUser(ctx, "alice@example.com", "")
+	_, err := svc.CreateUser(ctx, "alice@example.com", "", "password123")
 
-	assert.ErrorIs(t, err, domain.ErrInvalidName)
+	assert.ErrorIs(t, err, domain.ErrInvalidUserName)
 }
 
 func TestGetByID_NotFound(t *testing.T) {
@@ -90,10 +90,10 @@ func TestListUsers_AfterCreate(t *testing.T) {
 	svc := newTestService(t)
 	ctx := context.Background()
 
-	_, err := svc.CreateUser(ctx, "a@example.com", "A")
+	_, err := svc.CreateUser(ctx, "a@example.com", "A", "password123")
 	require.NoError(t, err)
 
-	_, err = svc.CreateUser(ctx, "b@example.com", "B")
+	_, err = svc.CreateUser(ctx, "b@example.com", "B", "password123")
 	require.NoError(t, err)
 
 	users, err := svc.ListUsers(ctx)

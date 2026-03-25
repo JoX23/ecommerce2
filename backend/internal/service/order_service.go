@@ -27,6 +27,11 @@ func NewOrderService(repo domain.OrderRepository, productRepo domain.ProductRepo
 }
 
 // CreateOrder creates an order from a list of items with product lookups.
+// Orden de operaciones:
+// 1. Para cada item: buscar producto, validar status y stock → si falla, error sin modificar nada
+// 2. Crear el objeto order en memoria
+// 3. Persistir la orden
+// 4. Solo si la orden se guardó: reducir stock de cada producto
 func (s *OrderService) CreateOrder(ctx context.Context, userid uuid.UUID, itemRequests []domain.OrderItemRequest) (*domain.Order, error) {
 	if userid == (uuid.UUID{}) {
 		return nil, domain.ErrInvalidOrderUserId
@@ -35,6 +40,12 @@ func (s *OrderService) CreateOrder(ctx context.Context, userid uuid.UUID, itemRe
 		return nil, fmt.Errorf("order must have at least one item")
 	}
 
+	// Paso 1: Validar todos los productos sin modificar nada todavía.
+	type resolvedItem struct {
+		product *domain.Product
+		request domain.OrderItemRequest
+	}
+	resolved := make([]resolvedItem, 0, len(itemRequests))
 	var items []domain.OrderItem
 	var total float64
 
@@ -46,37 +57,53 @@ func (s *OrderService) CreateOrder(ctx context.Context, userid uuid.UUID, itemRe
 			}
 			return nil, fmt.Errorf("looking up product: %w", err)
 		}
+
+		if product.Status != domain.ProductStatusPublished {
+			return nil, fmt.Errorf("product %s is not available for purchase (status: %s)", product.Sku, product.Status)
+		}
+
 		if product.Stock < ir.Qty {
 			return nil, fmt.Errorf("insufficient stock for product %s", product.Sku)
 		}
 
 		subtotal := product.Price * float64(ir.Qty)
 		items = append(items, domain.OrderItem{
-			ProductId: product.ID,
-			Qty:       ir.Qty,
-			UnitPrice: product.Price,
-			Subtotal:  subtotal,
+			ProductId:   product.ID,
+			ProductName: product.Name,
+			Qty:         ir.Qty,
+			UnitPrice:   product.Price,
+			Subtotal:    subtotal,
 		})
 		total += subtotal
-
-		// Reduce stock
-		product.Stock -= ir.Qty
-		if err := s.productRepo.Save(ctx, product); err != nil {
-			return nil, fmt.Errorf("updating product stock: %w", err)
-		}
+		resolved = append(resolved, resolvedItem{product: product, request: ir})
 	}
 
+	// Paso 2: Crear el objeto order en memoria.
 	order, err := domain.NewOrder(userid, total, items)
 	if err != nil {
 		return nil, err
 	}
 
+	// Paso 3: Persistir la orden.
 	if err := s.repo.CreateIfNotExists(ctx, order); err != nil {
 		if errors.Is(err, domain.ErrOrderDuplicated) {
 			return nil, err
 		}
 		s.logger.Error("failed to create order", zap.Error(err))
 		return nil, fmt.Errorf("creating order: %w", err)
+	}
+
+	// Paso 4: Solo si la orden se guardó, reducir el stock.
+	for _, ri := range resolved {
+		ri.product.Stock -= ri.request.Qty
+		if err := s.productRepo.Save(ctx, ri.product); err != nil {
+			s.logger.Error("failed to update product stock after order creation",
+				zap.String("order_id", order.ID.String()),
+				zap.String("product_id", ri.product.ID.String()),
+				zap.Error(err),
+			)
+			return nil, fmt.Errorf("updating product stock: %w", err)
+		}
 	}
 
 	s.logger.Info("order created", zap.String("id", order.ID.String()))

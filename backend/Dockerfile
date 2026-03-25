@@ -9,6 +9,7 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 COPY --from=builder /app/server .
-COPY --from=builder /app/config.yaml .
+# config.yaml NO se copia en la imagen. En producción la config se inyecta
+# exclusivamente via variables de entorno (APP_* prefix).
 EXPOSE 8080
 CMD ["./server"]

@@ -22,11 +22,12 @@ func NewProductHandler(svc *service.ProductService, logger *zap.Logger) *Product
 }
 
 // RegisterRoutes registers all Product routes on the mux.
-func (h *ProductHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /products", h.CreateProduct)
+// authMW protege las rutas de escritura (POST, PUT) requiriendo un JWT válido.
+func (h *ProductHandler) RegisterRoutes(mux *http.ServeMux, authMW func(http.Handler) http.Handler) {
+	mux.Handle("POST /products", authMW(http.HandlerFunc(h.CreateProduct)))
 	mux.HandleFunc("GET /products", h.ListProducts)
 	mux.HandleFunc("GET /products/{id}", h.GetProduct)
-	mux.HandleFunc("PUT /products/{id}", h.UpdateProduct)
+	mux.Handle("PUT /products/{id}", authMW(http.HandlerFunc(h.UpdateProduct)))
 }
 
 // CreateProduct handles POST /products

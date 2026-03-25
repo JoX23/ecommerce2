@@ -30,11 +30,12 @@ func (h *UserHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 // CreateUser maneja POST /users
+// Nota: este handler no está montado en main.go. Usar POST /auth/register.
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Email        string `json:"email"`
-		Name         string `json:"name"`
-		PasswordHash string `json:"password_hash"`
+		Email    string `json:"email"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -42,7 +43,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e, err := h.svc.CreateUser(r.Context(), req.Email, req.Name, req.PasswordHash)
+	e, err := h.svc.CreateUser(r.Context(), req.Email, req.Name, req.Password)
 	if err != nil {
 		h.handleUserError(w, err)
 		return
@@ -83,20 +84,18 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 type userResponse struct {
-	ID           string `json:"id"`
-	Email        string `json:"email"`
-	Name         string `json:"name"`
-	PasswordHash string `json:"password_hash"`
-	CreatedAt    string `json:"created_at"`
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
 }
 
 func toUserResponse(e *domain.User) userResponse {
 	return userResponse{
-		ID:           e.ID.String(),
-		Email:        e.Email,
-		Name:         e.Name,
-		PasswordHash: e.PasswordHash,
-		CreatedAt:    e.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:        e.ID.String(),
+		Email:     e.Email,
+		Name:      e.Name,
+		CreatedAt: e.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }
 

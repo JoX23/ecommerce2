@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JoX23/go-without-magic/internal/config"
 	"github.com/JoX23/go-without-magic/internal/domain"
 )
 
@@ -17,26 +16,8 @@ type UserRepository struct {
 	pool *pgxpool.Pool
 }
 
-func NewUserRepository(cfg config.DatabaseConfig) (*UserRepository, error) {
-	poolCfg, err := pgxpool.ParseConfig(cfg.DSN)
-	if err != nil {
-		return nil, fmt.Errorf("parsing database DSN: %w", err)
-	}
-
-	poolCfg.MaxConns = int32(cfg.MaxOpenConns)
-	poolCfg.MinConns = int32(cfg.MaxIdleConns)
-
-	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
-	if err != nil {
-		return nil, fmt.Errorf("creating connection pool: %w", err)
-	}
-
-	if err := pool.Ping(context.Background()); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("pinging database: %w", err)
-	}
-
-	return &UserRepository{pool: pool}, nil
+func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
+	return &UserRepository{pool: pool}
 }
 
 func (r *UserRepository) CreateIfNotExists(ctx context.Context, e *domain.User) error {
@@ -54,11 +35,16 @@ func (r *UserRepository) CreateIfNotExists(ctx context.Context, e *domain.User) 
 func (r *UserRepository) Save(ctx context.Context, e *domain.User) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO users (id, email, name, password_hash, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 ON CONFLICT (id) DO UPDATE SET
+		     email = EXCLUDED.email,
+		     name = EXCLUDED.name,
+		     password_hash = EXCLUDED.password_hash,
+		     updated_at = EXCLUDED.updated_at`,
 		e.ID.String(), e.Email, e.Name, e.PasswordHash, e.CreatedAt, e.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("inserting user: %w", err)
+		return fmt.Errorf("upserting user: %w", err)
 	}
 	return nil
 }

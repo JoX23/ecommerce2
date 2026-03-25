@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JoX23/go-without-magic/internal/config"
 	"github.com/JoX23/go-without-magic/internal/domain"
 )
 
@@ -17,30 +16,18 @@ type OrderRepository struct {
 	pool *pgxpool.Pool
 }
 
-func NewOrderRepository(cfg config.DatabaseConfig) (*OrderRepository, error) {
-	poolCfg, err := pgxpool.ParseConfig(cfg.DSN)
-	if err != nil {
-		return nil, fmt.Errorf("parsing database DSN: %w", err)
-	}
-
-	poolCfg.MaxConns = int32(cfg.MaxOpenConns)
-	poolCfg.MinConns = int32(cfg.MaxIdleConns)
-
-	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
-	if err != nil {
-		return nil, fmt.Errorf("creating connection pool: %w", err)
-	}
-
-	if err := pool.Ping(context.Background()); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("pinging database: %w", err)
-	}
-
-	return &OrderRepository{pool: pool}, nil
+func NewOrderRepository(pool *pgxpool.Pool) *OrderRepository {
+	return &OrderRepository{pool: pool}
 }
 
 func (r *OrderRepository) CreateIfNotExists(ctx context.Context, e *domain.Order) error {
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	_, err = tx.Exec(ctx,
 		`INSERT INTO orders (id, user_id, status, total, created_at, updated_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		e.ID.String(), e.UserId, e.Status, e.Total, e.CreatedAt, e.UpdatedAt,
@@ -48,17 +35,36 @@ func (r *OrderRepository) CreateIfNotExists(ctx context.Context, e *domain.Order
 	if err != nil {
 		return fmt.Errorf("creating order: %w", err)
 	}
+
+	for _, item := range e.Items {
+		_, err = tx.Exec(ctx,
+			`INSERT INTO order_items (id, order_id, product_id, product_name, qty, unit_price, subtotal)
+			 VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)`,
+			e.ID.String(), item.ProductId.String(), item.ProductName, item.Qty, item.UnitPrice, item.Subtotal,
+		)
+		if err != nil {
+			return fmt.Errorf("creating order item: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
 	return nil
 }
 
 func (r *OrderRepository) Save(ctx context.Context, e *domain.Order) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO orders (id, user_id, status, total, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 ON CONFLICT (id) DO UPDATE SET
+		     status = EXCLUDED.status,
+		     total = EXCLUDED.total,
+		     updated_at = EXCLUDED.updated_at`,
 		e.ID.String(), e.UserId, e.Status, e.Total, e.CreatedAt, e.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("inserting order: %w", err)
+		return fmt.Errorf("upserting order: %w", err)
 	}
 	return nil
 }
@@ -76,6 +82,13 @@ func (r *OrderRepository) FindByID(ctx context.Context, id string) (*domain.Orde
 	if err != nil {
 		return nil, fmt.Errorf("querying by id: %w", err)
 	}
+
+	items, err := r.findItemsByOrderID(ctx, e.ID.String())
+	if err != nil {
+		return nil, err
+	}
+	e.Items = items
+
 	return e, nil
 }
 
@@ -96,6 +109,11 @@ func (r *OrderRepository) FindByUserId(ctx context.Context, userid uuid.UUID) ([
 		if err != nil {
 			return nil, fmt.Errorf("scanning row: %w", err)
 		}
+		items, err := r.findItemsByOrderID(ctx, e.ID.String())
+		if err != nil {
+			return nil, err
+		}
+		e.Items = items
 		result = append(result, e)
 	}
 	return result, rows.Err()
@@ -117,7 +135,41 @@ func (r *OrderRepository) List(ctx context.Context) ([]*domain.Order, error) {
 		if err != nil {
 			return nil, fmt.Errorf("scanning row: %w", err)
 		}
+		orderItems, err := r.findItemsByOrderID(ctx, e.ID.String())
+		if err != nil {
+			return nil, err
+		}
+		e.Items = orderItems
 		items = append(items, e)
+	}
+	return items, rows.Err()
+}
+
+// findItemsByOrderID retrieves all order_items for a given order ID.
+func (r *OrderRepository) findItemsByOrderID(ctx context.Context, orderID string) ([]domain.OrderItem, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT product_id, product_name, qty, unit_price, subtotal
+		 FROM order_items WHERE order_id = $1`,
+		orderID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying order items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []domain.OrderItem
+	for rows.Next() {
+		var item domain.OrderItem
+		var productIDStr string
+		if err := rows.Scan(&productIDStr, &item.ProductName, &item.Qty, &item.UnitPrice, &item.Subtotal); err != nil {
+			return nil, fmt.Errorf("scanning order item: %w", err)
+		}
+		pid, err := uuid.Parse(productIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing product uuid: %w", err)
+		}
+		item.ProductId = pid
+		items = append(items, item)
 	}
 	return items, rows.Err()
 }

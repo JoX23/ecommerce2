@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JoX23/go-without-magic/internal/config"
 	"github.com/JoX23/go-without-magic/internal/domain"
 )
 
@@ -17,26 +16,8 @@ type ProductRepository struct {
 	pool *pgxpool.Pool
 }
 
-func NewProductRepository(cfg config.DatabaseConfig) (*ProductRepository, error) {
-	poolCfg, err := pgxpool.ParseConfig(cfg.DSN)
-	if err != nil {
-		return nil, fmt.Errorf("parsing database DSN: %w", err)
-	}
-
-	poolCfg.MaxConns = int32(cfg.MaxOpenConns)
-	poolCfg.MinConns = int32(cfg.MaxIdleConns)
-
-	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
-	if err != nil {
-		return nil, fmt.Errorf("creating connection pool: %w", err)
-	}
-
-	if err := pool.Ping(context.Background()); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("pinging database: %w", err)
-	}
-
-	return &ProductRepository{pool: pool}, nil
+func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
+	return &ProductRepository{pool: pool}
 }
 
 func (r *ProductRepository) CreateIfNotExists(ctx context.Context, e *domain.Product) error {
@@ -54,11 +35,20 @@ func (r *ProductRepository) CreateIfNotExists(ctx context.Context, e *domain.Pro
 func (r *ProductRepository) Save(ctx context.Context, e *domain.Product) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO products (id, sku, name, price, stock, description, image_url, status, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		 ON CONFLICT (id) DO UPDATE SET
+		     sku = EXCLUDED.sku,
+		     name = EXCLUDED.name,
+		     price = EXCLUDED.price,
+		     stock = EXCLUDED.stock,
+		     description = EXCLUDED.description,
+		     image_url = EXCLUDED.image_url,
+		     status = EXCLUDED.status,
+		     updated_at = EXCLUDED.updated_at`,
 		e.ID.String(), e.Sku, e.Name, e.Price, e.Stock, e.Description, e.ImageUrl, e.Status, e.CreatedAt, e.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("inserting product: %w", err)
+		return fmt.Errorf("upserting product: %w", err)
 	}
 	return nil
 }

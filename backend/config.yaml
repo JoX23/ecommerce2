@@ -11,12 +11,14 @@ server:
   write_timeout: "10s"
 
 database:
-  dsn: "postgres://user:password@localhost:5432/go_without_magic"
+  # Inyectar via env var APP_DATABASE_DSN en producción
+  dsn: "postgres://user:CHANGE_ME@localhost:5432/go_without_magic"
   max_open_conns: 25
   max_idle_conns: 25
 
 auth:
-  jwt_secret: "supersecretkey123"
+  # NUNCA poner el secret real aquí. Inyectar via APP_AUTH_JWT_SECRET
+  jwt_secret: "CHANGE_ME_IN_PRODUCTION"
 
 observability:
   log_level: "info"

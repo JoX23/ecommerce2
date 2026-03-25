@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/JoX23/go-without-magic/internal/domain"
 )
@@ -24,9 +25,14 @@ func NewUserService(repo domain.UserRepository, logger *zap.Logger) *UserService
 	}
 }
 
-// CreateUser orquesta la creación de un user.
-func (s *UserService) CreateUser(ctx context.Context, email string, name string, passwordhash string) (*domain.User, error) {
-	e, err := domain.NewUser(email, name, passwordhash)
+// CreateUser hashea la contraseña con bcrypt y persiste el usuario.
+func (s *UserService) CreateUser(ctx context.Context, email string, name string, password string) (*domain.User, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hashing password: %w", err)
+	}
+
+	e, err := domain.NewUser(email, name, string(hash))
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +46,23 @@ func (s *UserService) CreateUser(ctx context.Context, email string, name string,
 	}
 
 	s.logger.Info("user created", zap.String("id", e.ID.String()))
+	return e, nil
+}
+
+// AuthenticateUser busca el usuario por email y compara el hash de la contraseña.
+func (s *UserService) AuthenticateUser(ctx context.Context, email string, password string) (*domain.User, error) {
+	if email == "" {
+		return nil, fmt.Errorf("email cannot be empty")
+	}
+	e, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("finding user: %w", err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(e.PasswordHash), []byte(password)); err != nil {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
 	return e, nil
 }
 

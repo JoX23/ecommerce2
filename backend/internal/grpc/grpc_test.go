@@ -30,7 +30,7 @@ func TestToGRPCError_DomainMapping(t *testing.T) {
 		t.Fatalf("expected AlreadyExists, got %s", status.Code(err))
 	}
 
-	err = ToGRPCError(domain.ErrInvalidEmail)
+	err = ToGRPCError(domain.ErrInvalidUserEmail)
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument, got %s", status.Code(err))
 	}
